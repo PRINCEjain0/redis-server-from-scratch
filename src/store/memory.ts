@@ -3,7 +3,8 @@ type StoredValue = {
   expiresAt: number | null;
 };
 
-const store = new Map<string, StoredValue>();
+export const store = new Map<string, StoredValue>();
+export const expiryKeys = new Set<string>();
 
 function isExpired(entry: StoredValue) {
   return entry.expiresAt !== null && Date.now() > entry.expiresAt;
@@ -20,6 +21,12 @@ export function setKey(
       : null;
 
   store.set(key, { value, expiresAt });
+
+  if (expiresAt !== null) {
+    expiryKeys.add(key);
+  } else {
+    expiryKeys.delete(key);
+  }
 }
 
 export function getKey(key: string): string | null {
@@ -28,6 +35,7 @@ export function getKey(key: string): string | null {
 
   if (isExpired(entry)) {
     store.delete(key);
+    expiryKeys.delete(key);
     return null;
   }
 
@@ -43,6 +51,7 @@ export function ttlKey(key: string): number {
   const ttlMs = entry.expiresAt - Date.now();
   if (ttlMs <= 0) {
     store.delete(key);
+    expiryKeys.delete(key);
     return -2;
   }
 

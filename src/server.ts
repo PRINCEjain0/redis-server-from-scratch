@@ -2,7 +2,7 @@ import * as net from "net";
 import { Socket } from "net";
 import { decodeRESP } from "./resp/decoder";
 import { encodeRESP } from "./resp/encoder";
-import { setKey, getKey, ttlKey } from "./store/memory";
+import { setKey, getKey, ttlKey, store, expiryKeys } from "./store/memory";
 
 const port: number = 6379;
 
@@ -62,6 +62,7 @@ const server = net.createServer((socket: Socket) => {
 
       buffer = buffer.slice(result.bytesConsumed);
     }
+
   });
 
   socket.on("end", () => {
@@ -72,6 +73,29 @@ const server = net.createServer((socket: Socket) => {
     console.error("Socket error:", err);
   });
 });
+
+setInterval(() => {
+  const now = Date.now();
+  let checked = 0;
+  const MAX_SAMPLES = 20;
+
+  for (const key of expiryKeys) {
+    if (checked >= MAX_SAMPLES) break;
+    checked++;
+
+    const entry = store.get(key);
+    if (!entry) {
+      expiryKeys.delete(key);
+      continue;
+    }
+
+    if (entry.expiresAt !== null && now > entry.expiresAt) {
+      store.delete(key);
+      expiryKeys.delete(key);
+    }
+  }
+}, 1000);
+
 
 server.listen(6379, () => {
   console.log("Server is listening on port 6379");
