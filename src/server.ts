@@ -1,6 +1,8 @@
 import * as net from "net";
 import { Socket } from 'net';
 import {decodeRESP} from './resp/decoder';
+import { encodeRESP } from "./resp/encoder";
+
 const port: number= 6379;
 
 const server = net.createServer((socket : Socket) =>{
@@ -15,7 +17,14 @@ const server = net.createServer((socket : Socket) =>{
             const result  = decodeRESP(buffer);
             if (!result) break;
 
-            console.log("Parsed command:", result.value);
+            const command = result.value[0];
+
+            console.log("Parsed command:", command);
+
+            if(command === "PING"){
+                const response = encodeRESP("PONG");
+                socket.write(response);
+            }
 
             buffer = buffer.slice(result.bytesConsumed);
         }
@@ -28,8 +37,6 @@ const server = net.createServer((socket : Socket) =>{
     socket.on('error', (err : Error) =>{
         console.error('Socket error:', err);
     })
-
-socket.write('+OK\r\n');
 
 })
 
