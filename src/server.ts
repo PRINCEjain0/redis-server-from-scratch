@@ -16,6 +16,7 @@ const server = net.createServer((socket: Socket) => {
     console.log("Received data:", buffer.toString());
     while (true) {
       const result = decodeRESP(buffer);
+      console.log(result);
       if (!result) break;
 
       const [rawCommand, ...args] = result.value;
@@ -27,6 +28,16 @@ const server = net.createServer((socket: Socket) => {
         const response = encodeRESP({ type: "status", value: "PONG" });
         socket.write(response);
       } else if (command === "SET") {
+        if (args.length < 2) {
+          socket.write(
+            encodeRESP({
+              type: "error",
+              value: "ERR wrong number of arguments for 'set' command",
+            }),
+          );
+          buffer = buffer.slice(result.bytesConsumed);
+          continue;
+        }
         const [key, value, option, ttl] = args;
 
         if (option === "EX" && ttl !== undefined) {
@@ -37,6 +48,16 @@ const server = net.createServer((socket: Socket) => {
 
         socket.write(encodeRESP({ type: "status", value: "OK" }));
       } else if (command === "GET") {
+        if (args.length !== 1) {
+          socket.write(
+            encodeRESP({
+              type: "error",
+              value: "ERR wrong number of arguments for 'get' command",
+            }),
+          );
+          buffer = buffer.slice(result.bytesConsumed);
+          continue;
+        }
         const [key] = args;
         const value = getKey(key);
 
@@ -48,6 +69,16 @@ const server = net.createServer((socket: Socket) => {
       } else if (command === "COMMAND") {
         socket.write(encodeRESP({ type: "bulk", value: "" }));
       } else if (command === "TTL") {
+        if (args.length !== 1) {
+          socket.write(
+            encodeRESP({
+              type: "error",
+              value: "ERR wrong number of arguments for 'ttl' command",
+            }),
+          );
+          buffer = buffer.slice(result.bytesConsumed);
+          continue;
+        }
         const [key] = args;
         const ttl = ttlKey(key);
         socket.write(encodeRESP({ type: "integer", value: ttl }));
@@ -58,11 +89,17 @@ const server = net.createServer((socket: Socket) => {
             value: "# Server\r\nredis_version:0.0.1\r\n",
           }),
         );
+      }else{
+        socket.write(
+            encodeRESP({
+              type: "error",
+              value: "ERR unknown command",
+            }),
+          );
       }
 
       buffer = buffer.slice(result.bytesConsumed);
     }
-
   });
 
   socket.on("end", () => {
@@ -95,7 +132,6 @@ setInterval(() => {
     }
   }
 }, 1000);
-
 
 server.listen(6379, () => {
   console.log("Server is listening on port 6379");

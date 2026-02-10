@@ -16,5 +16,9 @@ export function encodeRESP(value: any): Buffer {
     return Buffer.from(`:${value.value}\r\n`);
   }
 
+  if (value?.type === "error") {
+  return Buffer.from(`-${value.value}\r\n`);
+}
+
   throw new Error("Unsupported RESP encode");
 }
