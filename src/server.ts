@@ -13,7 +13,7 @@ const server = net.createServer((socket: Socket) => {
 
   socket.on("data", (chunck: Buffer) => {
     buffer = Buffer.concat([buffer, chunck]);
-    console.log("Received data:", buffer.toString("utf-8"));
+    console.log("Received data:", buffer);
     while (true) {
       const result = decodeRESP(buffer);
       if (!result) break;
@@ -25,12 +25,13 @@ const server = net.createServer((socket: Socket) => {
       console.log("Parsed command:", command);
 
       if (command === "PING") {
-        const response = encodeRESP("PONG");
+        const response = encodeRESP({ type: "status", value: "PONG" });
+;
         socket.write(response);
       } else if (command === "SET") {
         const [key, value] = args;
         setKey(key, value);
-        socket.write(encodeRESP("OK"));
+        socket.write(encodeRESP({ type: "status", value: "OK" }));
       } else if (command === "GET") {
         const [key] = args;
         const value = getKey(key);
