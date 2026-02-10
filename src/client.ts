@@ -7,6 +7,7 @@ const client = net.createConnection({ port: PORT }, () => {
 
   const pingCommand = "*1\r\n$4\r\nPING\r\n";
   client.write(pingCommand);
+
 });
 
 client.on("data", (data: Buffer) => {
