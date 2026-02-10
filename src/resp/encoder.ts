@@ -12,5 +12,9 @@ export function encodeRESP(value: any): Buffer {
     return Buffer.from(`$-1\r\n`);
   }
 
+  if (value?.type === "integer") {
+    return Buffer.from(`:${value.value}\r\n`);
+  }
+
   throw new Error("Unsupported RESP encode");
 }

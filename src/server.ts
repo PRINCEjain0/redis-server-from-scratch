@@ -2,7 +2,7 @@ import * as net from "net";
 import { Socket } from "net";
 import { decodeRESP } from "./resp/decoder";
 import { encodeRESP } from "./resp/encoder";
-import { setKey, getKey } from "./store/memory";
+import { setKey, getKey, ttlKey } from "./store/memory";
 
 const port: number = 6379;
 
@@ -13,7 +13,7 @@ const server = net.createServer((socket: Socket) => {
 
   socket.on("data", (chunck: Buffer) => {
     buffer = Buffer.concat([buffer, chunck]);
-    console.log("Received data:", buffer);
+    console.log("Received data:", buffer.toString());
     while (true) {
       const result = decodeRESP(buffer);
       if (!result) break;
@@ -21,16 +21,20 @@ const server = net.createServer((socket: Socket) => {
       const [rawCommand, ...args] = result.value;
       const command = rawCommand.toUpperCase();
 
-
       console.log("Parsed command:", command);
 
       if (command === "PING") {
         const response = encodeRESP({ type: "status", value: "PONG" });
-;
         socket.write(response);
       } else if (command === "SET") {
-        const [key, value] = args;
-        setKey(key, value);
+        const [key, value, option, ttl] = args;
+
+        if (option === "EX" && ttl !== undefined) {
+          setKey(key, value, parseInt(ttl, 10));
+        } else {
+          setKey(key, value);
+        }
+
         socket.write(encodeRESP({ type: "status", value: "OK" }));
       } else if (command === "GET") {
         const [key] = args;
@@ -43,6 +47,17 @@ const server = net.createServer((socket: Socket) => {
         }
       } else if (command === "COMMAND") {
         socket.write(encodeRESP({ type: "bulk", value: "" }));
+      } else if (command === "TTL") {
+        const [key] = args;
+        const ttl = ttlKey(key);
+        socket.write(encodeRESP({ type: "integer", value: ttl }));
+      } else if (command === "INFO") {
+        socket.write(
+          encodeRESP({
+            type: "bulk",
+            value: "# Server\r\nredis_version:0.0.1\r\n",
+          }),
+        );
       }
 
       buffer = buffer.slice(result.bytesConsumed);
