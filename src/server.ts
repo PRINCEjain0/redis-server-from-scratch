@@ -2,10 +2,14 @@ import * as net from "net";
 import { Socket } from "net";
 import { decodeRESP } from "./resp/decoder";
 import { encodeRESP } from "./resp/encoder";
-import { setKey, getKey, ttlKey, store, expiryKeys } from "./store/memory";
+import { store, expiryKeys } from "./store/memory";
 import { executeCommand } from "./command/execute";
+import { initAOF, appendToAOF, loadAOF } from "./persistence/aof";
 
 const port: number = 6379;
+
+loadAOF();
+initAOF();
 
 const server = net.createServer((socket: Socket) => {
   console.log("Client connected");
@@ -25,9 +29,14 @@ const server = net.createServer((socket: Socket) => {
 
       console.log("Parsed command:", command);
 
-     const response = executeCommand(command, args);
-     socket.write(encodeRESP(response));
+      const response = executeCommand(command, args);
 
+      const rawBuffer = buffer.slice(0, result.bytesConsumed)
+      if(response.isWrite) {
+        appendToAOF(rawBuffer);
+      }
+      console.log("Execution result:", response);
+      socket.write(encodeRESP(response.response));
 
       buffer = buffer.slice(result.bytesConsumed);
     }

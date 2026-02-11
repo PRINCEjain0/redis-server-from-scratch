@@ -1,17 +1,25 @@
 import { setKey, getKey, ttlKey } from "../store/memory";
 
+export type ExecutionResult = {
+  response: any;
+  isWrite: boolean;
+};
+
+
 export function executeCommand(command: string, args: string[]) {
   switch (command) {
 
     case "PING":
-      return { type: "status", value: "PONG" };
+      return { response: { type: "status", value: "PONG" }, isWrite: false };
 
     case "SET": {
       if (args.length < 2) {
         return {
-          type: "error",
+          response :{type: "error",
           value: "ERR wrong number of arguments for 'set' command",
-        };
+        },
+        isWrite: true
+      };
       }
 
       const [key, value, option, ttl] = args;
@@ -22,50 +30,50 @@ export function executeCommand(command: string, args: string[]) {
         setKey(key, value);
       }
 
-      return { type: "status", value: "OK" };
+      return {response :{ type: "status", value: "OK" }, isWrite: true};
     }
 
     case "GET": {
       if (args.length !== 1) {
         return {
-          type: "error",
-          value: "ERR wrong number of arguments for 'get' command",
+          response: { type: "error", value: "ERR wrong number of arguments for 'get' command" },
+          isWrite: false
         };
       }
 
       const [key] = args;
       const value = getKey(key);
 
-      if (value === null) return null;
+      if (value === null) return { response: null, isWrite: false };
 
-      return { type: "bulk", value };
+      return { response: { type: "bulk", value }, isWrite: false };
     }
 
     case "TTL": {
       if (args.length !== 1) {
         return {
-          type: "error",
-          value: "ERR wrong number of arguments for 'ttl' command",
+          response: { type: "error", value: "ERR wrong number of arguments for 'ttl' command" },
+          isWrite: false
         };
       }
 
       const [key] = args;
-      return { type: "integer", value: ttlKey(key) };
+      return { response: { type: "integer", value: ttlKey(key) }, isWrite: false };
     }
 
     case "INFO":
       return {
-        type: "bulk",
-        value: "# Server\r\nredis_version:0.0.1\r\n",
+        response: { type: "bulk", value: "# Server\r\nredis_version:0.0.1\r\n" },
+        isWrite: false
       };
 
     case "COMMAND":
-      return { type: "bulk", value: "" };
+      return { response: { type: "bulk", value: "" }, isWrite: false };
 
     default:
       return {
-        type: "error",
-        value: "ERR unknown command",
+        response: { type: "error", value: "ERR unknown command" },
+        isWrite: false
       };
   }
 }
