@@ -20,5 +20,16 @@ export function encodeRESP(value: any): Buffer {
   return Buffer.from(`-${value.value}\r\n`);
 }
 
+if (Array.isArray(value)) {
+  let result = `*${value.length}\r\n`;
+
+  for (const item of value) {
+    result += `$${Buffer.byteLength(item)}\r\n${item}\r\n`;
+  }
+
+  return Buffer.from(result);
+}
+
+
   throw new Error("Unsupported RESP encode");
 }

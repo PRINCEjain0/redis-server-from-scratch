@@ -71,4 +71,26 @@ export function existsKey(key: string): number {
   return value !== null ? 1 : 0;
 }
 
+export function dbSize(): number {
+  let count = 0;
+
+  for (const key of store.keys()) {
+    if (getKey(key) !== null) count++;
+  }
+
+  return count;
+}
+
+export function getAllKeys(): string[] {
+  const keys: string[] = [];
+
+  for (const key of store.keys()) {
+    if (getKey(key) !== null) {
+      keys.push(key);
+    }
+  }
+
+  return keys;
+}
+
 

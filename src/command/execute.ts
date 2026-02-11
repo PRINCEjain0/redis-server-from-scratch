@@ -1,4 +1,12 @@
-import { setKey, getKey, ttlKey, deleteKey, existsKey } from "../store/memory";
+import {
+  setKey,
+  getKey,
+  ttlKey,
+  deleteKey,
+  existsKey,
+  dbSize,
+  getAllKeys,
+} from "../store/memory";
 
 export type ExecutionResult = {
   response: any;
@@ -87,6 +95,12 @@ export function executeCommand(command: string, args: string[]) {
       };
     }
 
+    case "DBSIZE":
+      return {
+        response: { type: "integer", value: dbSize() },
+        isWrite: false,
+      };
+
     case "TTL": {
       if (args.length !== 1) {
         return {
@@ -101,6 +115,23 @@ export function executeCommand(command: string, args: string[]) {
       const [key] = args;
       return {
         response: { type: "integer", value: ttlKey(key) },
+        isWrite: false,
+      };
+    }
+
+    case "KEYS": {
+      if (args.length !== 1 || args[0] !== "*") {
+        return {
+          response: {
+            type: "error",
+            value: "ERR only KEYS * supported",
+          },
+          isWrite: false,
+        };
+      }
+
+      return {
+        response: getAllKeys(),
         isWrite: false,
       };
     }
