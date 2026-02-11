@@ -66,3 +66,9 @@ export function deleteKey(key: string): number {
   return 1;
 }
 
+export function existsKey(key: string): number {
+  const value = getKey(key);
+  return value !== null ? 1 : 0;
+}
+
+

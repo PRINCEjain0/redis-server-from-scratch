@@ -1,4 +1,4 @@
-import { setKey, getKey, ttlKey, deleteKey } from "../store/memory";
+import { setKey, getKey, ttlKey, deleteKey, existsKey } from "../store/memory";
 
 export type ExecutionResult = {
   response: any;
@@ -67,6 +67,23 @@ export function executeCommand(command: string, args: string[]) {
       return {
         response: { type: "integer", value: deleted },
         isWrite: deleted === 1,
+      };
+    }
+
+    case "EXISTS": {
+      if (args.length !== 1) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'exists' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      return {
+        response: { type: "integer", value: existsKey(args[0]) },
+        isWrite: false,
       };
     }
 
