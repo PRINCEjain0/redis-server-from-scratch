@@ -6,6 +6,9 @@ import {
   existsKey,
   dbSize,
   getAllKeys,
+  lpush,
+  rpush,
+  llen,
 } from "../store/memory";
 
 export type ExecutionResult = {
@@ -52,11 +55,19 @@ export function executeCommand(command: string, args: string[]) {
       }
 
       const [key] = args;
-      const value = getKey(key);
 
-      if (value === null) return { response: null, isWrite: false };
+      try {
+        const value = getKey(key);
 
-      return { response: { type: "bulk", value }, isWrite: false };
+        if (value === null) return { response: null, isWrite: false };
+
+        return { response: { type: "bulk", value }, isWrite: false };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
     }
 
     case "DEL": {
@@ -93,6 +104,94 @@ export function executeCommand(command: string, args: string[]) {
         response: { type: "integer", value: existsKey(args[0]) },
         isWrite: false,
       };
+    }
+
+    case "LPUSH": {
+      if (args.length < 2) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'lpush' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      const [key, ...values] = args;
+
+      try {
+        const len = lpush(key, values);
+        return {
+          response: { type: "integer", value: len },
+          isWrite: true,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
+    }
+
+    case "RPUSH": {
+      if (args.length < 2) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'rpush' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      const [key, ...values] = args;
+
+      try {
+        const len = rpush(key, values);
+        return {
+          response: { type: "integer", value: len },
+          isWrite: true,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
+    }
+
+    case "LLEN": {
+      if (args.length !== 1) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'llen' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      const [key] = args;
+      try {
+        const len = llen(key);
+
+        if (len == 0) {
+          return {
+            response: { type: "integer", value: 0 },
+            isWrite: false,
+          };
+        }
+
+        return {
+          response: { type: "integer", value: len },
+          isWrite: false,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
     }
 
     case "DBSIZE":

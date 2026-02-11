@@ -1,5 +1,13 @@
+type redisValue = {
+  type : "string",
+  value : string,
+} | {
+  type : "list",
+  value : string[],
+}
+
 type StoredValue = {
-  value: string;
+  data: redisValue;
   expiresAt: number | null;
 };
 
@@ -20,7 +28,10 @@ export function setKey(
       ? Date.now() + ttlSeconds * 1000
       : null;
 
-  store.set(key, { value, expiresAt });
+  store.set(key, {
+  data: { type: "string", value },
+  expiresAt,
+});
 
   if (expiresAt !== null) {
     expiryKeys.add(key);
@@ -39,7 +50,11 @@ export function getKey(key: string): string | null {
     return null;
   }
 
-  return entry.value;
+  if (entry.data.type !== "string") {
+    throw new Error("WRONGTYPE Operation against a key holding the wrong kind of value");
+  }
+
+  return entry.data.value;
 }
 
 export function ttlKey(key: string): number {
@@ -67,30 +82,105 @@ export function deleteKey(key: string): number {
 }
 
 export function existsKey(key: string): number {
-  const value = getKey(key);
-  return value !== null ? 1 : 0;
+  const entry = store.get(key);
+  if (!entry) return 0;
+
+  if (isExpired(entry)) {
+    store.delete(key);
+    expiryKeys.delete(key);
+    return 0;
+  }
+
+  return 1;
 }
+
 
 export function dbSize(): number {
   let count = 0;
 
-  for (const key of store.keys()) {
-    if (getKey(key) !== null) count++;
+  for (const [key, entry] of store.entries()) {
+    if (isExpired(entry)) {
+      store.delete(key);
+      expiryKeys.delete(key);
+      continue;
+    }
+    count++;
   }
 
   return count;
 }
 
+
 export function getAllKeys(): string[] {
   const keys: string[] = [];
 
-  for (const key of store.keys()) {
-    if (getKey(key) !== null) {
-      keys.push(key);
+  for (const [key, entry] of store.entries()) {
+    if (isExpired(entry)) {
+      store.delete(key);
+      expiryKeys.delete(key);
+      continue;
     }
+    keys.push(key);
   }
 
   return keys;
 }
+
+
+
+export function lpush(key : string, values : string[]) : number{
+   let entry = store.get(key);
+
+   if(!entry){
+    entry = {data :{type : "list", value : []}, expiresAt : null};
+    store.set(key, entry);
+   }
+
+   if(entry.data.type !== "list"){
+    throw new Error("WRONGTYPE Operation against a key holding the wrong kind of value");
+   }
+
+   for( const value of values){
+    entry.data.value.unshift(value);
+   }
+
+   return entry.data.value.length;
+}
+
+
+export function rpush(key: string, values: string[]): number {
+  let entry = store.get(key);
+
+  if (!entry) {
+    entry = {
+      data: { type: "list", value: [] },
+      expiresAt: null,
+    };
+    store.set(key, entry);
+  }
+
+  if (entry.data.type !== "list") {
+    throw new Error("WRONGTYPE Operation against a key holding the wrong kind of value");
+  }
+
+  for (const val of values) {
+    entry.data.value.push(val);
+  }
+
+  return entry.data.value.length;
+}
+
+
+export function llen(key: string): number {
+  const entry = store.get(key);
+  if (!entry) return 0;
+
+  if (entry.data.type !== "list") {
+    throw new Error("WRONGTYPE Operation against a key holding the wrong kind of value");
+  }
+
+  return entry.data.value.length;
+}
+
 
 
