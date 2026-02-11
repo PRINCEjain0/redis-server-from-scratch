@@ -57,3 +57,12 @@ export function ttlKey(key: string): number {
 
   return Math.ceil(ttlMs / 1000);
 }
+
+export function deleteKey(key: string): number {
+  if (!store.has(key)) return 0;
+
+  store.delete(key);
+  expiryKeys.delete(key);
+  return 1;
+}
+

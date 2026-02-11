@@ -1,25 +1,24 @@
-import { setKey, getKey, ttlKey } from "../store/memory";
+import { setKey, getKey, ttlKey, deleteKey } from "../store/memory";
 
 export type ExecutionResult = {
   response: any;
   isWrite: boolean;
 };
 
-
 export function executeCommand(command: string, args: string[]) {
   switch (command) {
-
     case "PING":
       return { response: { type: "status", value: "PONG" }, isWrite: false };
 
     case "SET": {
       if (args.length < 2) {
         return {
-          response :{type: "error",
-          value: "ERR wrong number of arguments for 'set' command",
-        },
-        isWrite: true
-      };
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'set' command",
+          },
+          isWrite: true,
+        };
       }
 
       const [key, value, option, ttl] = args;
@@ -30,14 +29,17 @@ export function executeCommand(command: string, args: string[]) {
         setKey(key, value);
       }
 
-      return {response :{ type: "status", value: "OK" }, isWrite: true};
+      return { response: { type: "status", value: "OK" }, isWrite: true };
     }
 
     case "GET": {
       if (args.length !== 1) {
         return {
-          response: { type: "error", value: "ERR wrong number of arguments for 'get' command" },
-          isWrite: false
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'get' command",
+          },
+          isWrite: false,
         };
       }
 
@@ -49,22 +51,50 @@ export function executeCommand(command: string, args: string[]) {
       return { response: { type: "bulk", value }, isWrite: false };
     }
 
+    case "DEL": {
+      if (args.length !== 1) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'del' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      const deleted = deleteKey(args[0]);
+
+      return {
+        response: { type: "integer", value: deleted },
+        isWrite: deleted === 1,
+      };
+    }
+
     case "TTL": {
       if (args.length !== 1) {
         return {
-          response: { type: "error", value: "ERR wrong number of arguments for 'ttl' command" },
-          isWrite: false
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'ttl' command",
+          },
+          isWrite: false,
         };
       }
 
       const [key] = args;
-      return { response: { type: "integer", value: ttlKey(key) }, isWrite: false };
+      return {
+        response: { type: "integer", value: ttlKey(key) },
+        isWrite: false,
+      };
     }
 
     case "INFO":
       return {
-        response: { type: "bulk", value: "# Server\r\nredis_version:0.0.1\r\n" },
-        isWrite: false
+        response: {
+          type: "bulk",
+          value: "# Server\r\nredis_version:0.0.1\r\n",
+        },
+        isWrite: false,
       };
 
     case "COMMAND":
@@ -73,7 +103,7 @@ export function executeCommand(command: string, args: string[]) {
     default:
       return {
         response: { type: "error", value: "ERR unknown command" },
-        isWrite: false
+        isWrite: false,
       };
   }
 }
