@@ -46,7 +46,6 @@ if (isReplica && masterHost && masterPort) {
 
 const server = net.createServer((socket: Socket) => {
   console.log("Client connected");
-
   let buffer = Buffer.alloc(0);
 
   socket.on("data", (chunck: Buffer) => {

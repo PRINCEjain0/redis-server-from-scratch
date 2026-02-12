@@ -254,7 +254,7 @@ export function executeCommand(
         }
 
         return {
-          response: { type: "array", value: result },
+          response: result,
           isWrite: true,
           aofBuffer: [rawBuffer],
         };
@@ -296,7 +296,7 @@ export function executeCommand(
         }
 
         return {
-          response: { type: "array", value: result },
+          response:  result ,
           isWrite: true,
           aofBuffer: [rawBuffer],
         };
@@ -321,10 +321,7 @@ export function executeCommand(
         const result = lrange(key, parseInt(startStr), parseInt(stopStr));
 
         return {
-          response: {
-            type: "array",
-            value: result,
-          },
+          response: result,
           isWrite: false,
         };
       } catch (err: any) {
