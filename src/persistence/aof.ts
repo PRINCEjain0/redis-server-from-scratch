@@ -4,9 +4,14 @@ import { decodeRESP } from "../resp/decoder";
 import { executeCommand } from "../command/execute";
 
 let stream: fs.WriteStream | null = null;
+let fd: number | null = null;
+let lastFsync = Date.now();
 
 export function initAOF() {
-  stream = fs.createWriteStream(path.join(process.cwd(), "appendonly.aof"), {
+  const filePath = path.join(process.cwd(), "appendonly.aof");
+
+  fd = fs.openSync(filePath, "a");
+  stream = fs.createWriteStream(filePath, {
     flags: "a",
   });
 }
@@ -14,11 +19,16 @@ export function initAOF() {
 let isReplaying = false;
 
 export function appendToAOF(buffer: Buffer) {
-  if (!stream) return;
-
-  if(isReplaying) return;
+  if (!stream || fd === null) return;
 
   stream.write(buffer);
+
+  const now = Date.now();
+
+  if (now - lastFsync >= 1000) {
+    fs.fsyncSync(fd);
+    lastFsync = now;
+  }
 }
 
 export function loadAOF() {
@@ -32,7 +42,7 @@ export function loadAOF() {
   let buffer = data;
   while (true) {
     const result = decodeRESP(buffer);
-    
+
     if (!result) break;
 
     const [rawCommand, ...args] = result.value;

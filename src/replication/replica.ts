@@ -1,7 +1,5 @@
 import * as net from "net";
-import { Socket } from "net";
 import { decodeRESP } from "../resp/decoder";
-import { encodeRESP } from "../resp/encoder";
 import { executeCommand } from "../command/execute";
 import { appendToAOF } from "../persistence/aof";
 
