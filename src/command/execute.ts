@@ -9,14 +9,24 @@ import {
   lpush,
   rpush,
   llen,
+  expiryKeys,
+  store,
 } from "../store/memory";
+
+import { encodeCommand } from "../resp/encoder";
+import { time } from "node:console";
 
 export type ExecutionResult = {
   response: any;
   isWrite: boolean;
+  aofBuffer?: Buffer[];
 };
 
-export function executeCommand(command: string, args: string[]) {
+export function executeCommand(
+  command: string,
+  args: string[],
+  rawBuffer: Buffer,
+): ExecutionResult {
   switch (command) {
     case "PING":
       return { response: { type: "status", value: "PONG" }, isWrite: false };
@@ -33,14 +43,29 @@ export function executeCommand(command: string, args: string[]) {
       }
 
       const [key, value, option, ttl] = args;
+      let expiresAt: number | null = null;
 
       if (option === "EX" && ttl !== undefined) {
-        setKey(key, value, parseInt(ttl, 10));
+        const ttlSeconds = parseInt(ttl, 10);
+        expiresAt = Date.now() + ttlSeconds * 1000;
+        setKey(key, value, ttlSeconds);
       } else {
         setKey(key, value);
       }
 
-      return { response: { type: "status", value: "OK" }, isWrite: true };
+      let aofBuffer: Buffer[] = [];
+
+      aofBuffer.push(encodeCommand(["SET", key, value]));
+
+      if (expiresAt !== null) {
+        aofBuffer.push(encodeCommand(["PEXPIREAT", key, expiresAt.toString()]));
+      }
+
+      return {
+        response: { type: "status", value: "OK" },
+        isWrite: true,
+        aofBuffer: aofBuffer,
+      };
     }
 
     case "GET": {
@@ -86,6 +111,7 @@ export function executeCommand(command: string, args: string[]) {
       return {
         response: { type: "integer", value: deleted },
         isWrite: deleted === 1,
+        aofBuffer: deleted === 1 ? [rawBuffer] : undefined,
       };
     }
 
@@ -124,6 +150,7 @@ export function executeCommand(command: string, args: string[]) {
         return {
           response: { type: "integer", value: len },
           isWrite: true,
+          aofBuffer: [rawBuffer],
         };
       } catch (err: any) {
         return {
@@ -151,6 +178,7 @@ export function executeCommand(command: string, args: string[]) {
         return {
           response: { type: "integer", value: len },
           isWrite: true,
+          aofBuffer: [rawBuffer],
         };
       } catch (err: any) {
         return {
@@ -192,6 +220,38 @@ export function executeCommand(command: string, args: string[]) {
           isWrite: false,
         };
       }
+    }
+
+    case "PEXPIREAT": {
+      if (args.length !== 2) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'pexpireat' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      const [key, timestampStr] = args;
+      const timestamp = parseInt(timestampStr, 10);
+
+      const entry = store.get(key);
+      if (!entry) {
+        return {
+          response: { type: "integer", value: 0 },
+          isWrite: false,
+        };
+      }
+
+      entry.expiresAt = timestamp;
+      expiryKeys.add(key);
+
+      return {
+        response: { type: "integer", value: 1 },
+        aofBuffer: [rawBuffer],
+        isWrite: true,
+      };
     }
 
     case "DBSIZE":

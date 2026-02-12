@@ -47,8 +47,8 @@ export function loadAOF() {
 
     const [rawCommand, ...args] = result.value;
     const command = rawCommand.toUpperCase();
-
-    executeCommand(command, args);
+    const  rawBuffer = buffer.slice(0, result.bytesConsumed);
+    executeCommand(command, args, rawBuffer);
 
     buffer = buffer.slice(result.bytesConsumed);
   }

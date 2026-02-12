@@ -21,10 +21,10 @@ export function connectToMaster(masterHost: string, masterPort: number) {
 
       const [rawCommand, ...args] = result.value;
       const command = rawCommand.toUpperCase();
-      const response = executeCommand(command, args);
+      const rawBuffer = buffer.slice(0, result.bytesConsumed);
+      const response = executeCommand(command, args, rawBuffer);
 
       if (response.isWrite) {
-        const rawBuffer = buffer.slice(0, result.bytesConsumed);
         appendToAOF(rawBuffer);
       }
 

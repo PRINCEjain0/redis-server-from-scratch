@@ -29,7 +29,17 @@ if (Array.isArray(value)) {
 
   return Buffer.from(result);
 }
-
-
   throw new Error("Unsupported RESP encode");
+}
+
+export function encodeCommand(parts: string[]): Buffer {
+  const len = parts.length;
+
+  let resp = `*${len}\r\n`;
+
+  for (const part of parts) {
+    resp += `$${Buffer.byteLength(part)}\r\n${part}\r\n`;
+  }
+
+  return Buffer.from(resp);
 }

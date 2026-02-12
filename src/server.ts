@@ -35,7 +35,6 @@ if (portIndex !== -1 && portIndex + 1 < args.length) {
   port = parseInt(args[portIndex + 1], 10);
 }
 
-
 let replicaSocket: Socket[] = [];
 
 loadAOF();
@@ -71,10 +70,10 @@ const server = net.createServer((socket: Socket) => {
         buffer = buffer.slice(result.bytesConsumed);
         continue;
       }
+      const rawBuffer = buffer.slice(0, result.bytesConsumed);
+      const response = executeCommand(command, args, rawBuffer);
 
-      const response = executeCommand(command, args);
-
-      if (isReplica && response.isWrite) {
+      if (isReplica && response.aofBuffer) {
         socket.write(
           encodeRESP({
             type: "error",
@@ -85,11 +84,13 @@ const server = net.createServer((socket: Socket) => {
         buffer = buffer.slice(result.bytesConsumed);
         continue;
       }
-      const rawBuffer = buffer.slice(0, result.bytesConsumed);
-      if (response.isWrite) {
-        appendToAOF(rawBuffer);
-        for (const replica of replicaSocket) {
-          replica.write(rawBuffer);
+
+      if (response.aofBuffer) {
+        for (const buf of response.aofBuffer) {
+          appendToAOF(buf);
+          for (const replica of replicaSocket) {
+            replica.write(buf);
+          }
         }
       }
       console.log("Execution result:", response);
@@ -131,5 +132,5 @@ setInterval(() => {
 }, 1000);
 
 server.listen(port, () => {
-  console.log("Server is listening on port 6379");
+  console.log(`Server is listening on port ${port}`);
 });
