@@ -225,20 +225,38 @@ export function executeCommand(
     }
 
     case "LPOP": {
-      if (args.length !== 1) {
+      if (args.length < 1 || args.length > 2) {
         return {
           response: { type: "error", value: "ERR wrong number of arguments" },
           isWrite: false,
         };
       }
 
+      const key = args[0];
+      const count = args[1] ? parseInt(args[1], 10) : undefined;
+
       try {
-        const value = lpop(args[0]);
+        const result = lpop(key, count);
+
+        if (!result || result.length === 0) {
+          return {
+            response: null,
+            isWrite: false,
+          };
+        }
+
+        if (!count) {
+          return {
+            response: { type: "bulk", value: result[0] },
+            isWrite: true,
+            aofBuffer: [rawBuffer],
+          };
+        }
 
         return {
-          response: value === null ? null : { type: "bulk", value },
-          aofBuffer: value !== null ? [rawBuffer] : undefined,
-          isWrite: value !== null,
+          response: { type: "array", value: result },
+          isWrite: true,
+          aofBuffer: [rawBuffer],
         };
       } catch (err: any) {
         return {
@@ -248,21 +266,39 @@ export function executeCommand(
       }
     }
 
-    case "RPOP": {
-      if (args.length !== 1) {
+     case "RPOP": {
+      if (args.length < 1 || args.length > 2) {
         return {
           response: { type: "error", value: "ERR wrong number of arguments" },
           isWrite: false,
         };
       }
 
+      const key = args[0];
+      const count = args[1] ? parseInt(args[1], 10) : undefined;
+
       try {
-        const value = rpop(args[0]);
+        const result = rpop(key, count);
+
+        if (!result || result.length === 0) {
+          return {
+            response: null,
+            isWrite: false,
+          };
+        }
+
+        if (!count) {
+          return {
+            response: { type: "bulk", value: result[0] },
+            isWrite: true,
+            aofBuffer: [rawBuffer],
+          };
+        }
 
         return {
-          response: value === null ? null : { type: "bulk", value },
-          aofBuffer: value !== null ? [rawBuffer] : undefined,
-          isWrite: value !== null,
+          response: { type: "array", value: result },
+          isWrite: true,
+          aofBuffer: [rawBuffer],
         };
       } catch (err: any) {
         return {
@@ -273,31 +309,31 @@ export function executeCommand(
     }
 
     case "LRANGE": {
-  if (args.length !== 3) {
-    return {
-      response: { type: "error", value: "ERR wrong number of arguments" }, isWrite : false,
-    };
-  }
+      if (args.length !== 3) {
+        return {
+          response: { type: "error", value: "ERR wrong number of arguments" },
+          isWrite: false,
+        };
+      }
 
-  try {
-    const [key, startStr, stopStr] = args;
-    const result = lrange(key, parseInt(startStr), parseInt(stopStr));
+      try {
+        const [key, startStr, stopStr] = args;
+        const result = lrange(key, parseInt(startStr), parseInt(stopStr));
 
-    return {
-      response: {
-        type: "array",
-        value: result,
-      },
-      isWrite: false,
-    };
-  } catch (err: any) {
-    return {
-      response: { type: "error", value: err.message },
-      isWrite: false,
-    };
-  }
-}
-
+        return {
+          response: {
+            type: "array",
+            value: result,
+          },
+          isWrite: false,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
+    }
 
     case "PEXPIREAT": {
       if (args.length !== 2) {
