@@ -182,5 +182,65 @@ export function llen(key: string): number {
   return entry.data.value.length;
 }
 
+export function lpop(key: string): string | null {
+  const entry = store.get(key);
+  if (!entry) return null;
+
+  if (entry.data.type !== "list") {
+    throw new Error("WRONGTYPE Operation against a key holding the wrong kind of value");
+  }
+
+  const value = entry.data.value.shift() ?? null;
+
+  if (entry.data.value.length === 0) {
+    store.delete(key);
+    expiryKeys.delete(key);
+  }
+
+  return value;
+}
+
+
+export function rpop(key: string): string | null {
+  const entry = store.get(key);
+  if (!entry) return null;
+
+  if (entry.data.type !== "list") {
+    throw new Error("WRONGTYPE Operation against a key holding the wrong kind of value");
+  }
+
+  const value = entry.data.value.pop() ?? null;
+
+  if (entry.data.value.length === 0) {
+    store.delete(key);
+    expiryKeys.delete(key);
+  }
+
+  return value;
+}
+
+
+
+export function lrange(key: string, start: number, stop: number): string[] {
+  const entry = store.get(key);
+  if (!entry) return [];
+
+  if (entry.data.type !== "list") {
+    throw new Error("WRONGTYPE Operation against a key holding the wrong kind of value");
+  }
+
+  const list = entry.data.value;
+  const len = list.length;
+
+  if (start < 0) start = len + start;
+  if (stop < 0) stop = len + stop;
+
+  start = Math.max(start, 0);
+  stop = Math.min(stop, len - 1);
+
+  if (start > stop || start >= len) return [];
+
+  return list.slice(start, stop + 1);
+}
 
 

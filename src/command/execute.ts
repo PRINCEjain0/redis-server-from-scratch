@@ -11,10 +11,12 @@ import {
   llen,
   expiryKeys,
   store,
+  lpop,
+  rpop,
+  lrange,
 } from "../store/memory";
 
 import { encodeCommand } from "../resp/encoder";
-import { time } from "node:console";
 
 export type ExecutionResult = {
   response: any;
@@ -221,6 +223,81 @@ export function executeCommand(
         };
       }
     }
+
+    case "LPOP": {
+      if (args.length !== 1) {
+        return {
+          response: { type: "error", value: "ERR wrong number of arguments" },
+          isWrite: false,
+        };
+      }
+
+      try {
+        const value = lpop(args[0]);
+
+        return {
+          response: value === null ? null : { type: "bulk", value },
+          aofBuffer: value !== null ? [rawBuffer] : undefined,
+          isWrite: value !== null,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
+    }
+
+    case "RPOP": {
+      if (args.length !== 1) {
+        return {
+          response: { type: "error", value: "ERR wrong number of arguments" },
+          isWrite: false,
+        };
+      }
+
+      try {
+        const value = rpop(args[0]);
+
+        return {
+          response: value === null ? null : { type: "bulk", value },
+          aofBuffer: value !== null ? [rawBuffer] : undefined,
+          isWrite: value !== null,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
+    }
+
+    case "LRANGE": {
+  if (args.length !== 3) {
+    return {
+      response: { type: "error", value: "ERR wrong number of arguments" }, isWrite : false,
+    };
+  }
+
+  try {
+    const [key, startStr, stopStr] = args;
+    const result = lrange(key, parseInt(startStr), parseInt(stopStr));
+
+    return {
+      response: {
+        type: "array",
+        value: result,
+      },
+      isWrite: false,
+    };
+  } catch (err: any) {
+    return {
+      response: { type: "error", value: err.message },
+      isWrite: false,
+    };
+  }
+}
+
 
     case "PEXPIREAT": {
       if (args.length !== 2) {
