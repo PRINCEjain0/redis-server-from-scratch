@@ -5,11 +5,45 @@ import { encodeRESP } from "./resp/encoder";
 import { store, expiryKeys } from "./store/memory";
 import { executeCommand } from "./command/execute";
 import { initAOF, appendToAOF, loadAOF } from "./persistence/aof";
+import { connectToMaster } from "./replication/replica";
 
-const port: number = 6379;
+let port: number = 6379;
+
+const args = process.argv;
+
+let isReplica = false;
+let masterHost: string | null = null;
+let masterPort: number | null = null;
+
+if (args.includes("--replica")) {
+  const replicaIndex = args.indexOf("--replica");
+  if (replicaIndex + 1 < args.length) {
+    masterHost = args[replicaIndex + 1];
+  }
+  if (replicaIndex + 2 < args.length) {
+    masterPort = parseInt(args[replicaIndex + 2]);
+  }
+
+  if (masterHost && masterPort) {
+    isReplica = true;
+  }
+}
+
+const portIndex = args.indexOf("--port");
+
+if (portIndex !== -1 && portIndex + 1 < args.length) {
+  port = parseInt(args[portIndex + 1], 10);
+}
+
+
+let replicaSocket: Socket[] = [];
 
 loadAOF();
 initAOF();
+
+if (isReplica && masterHost && masterPort) {
+  connectToMaster(masterHost, masterPort);
+}
 
 const server = net.createServer((socket: Socket) => {
   console.log("Client connected");
@@ -29,11 +63,34 @@ const server = net.createServer((socket: Socket) => {
 
       console.log("Parsed command:", command);
 
+      if (command === "REPLICA") {
+        replicaSocket.push(socket);
+
+        socket.write(encodeRESP({ type: "status", value: "OK" }));
+
+        buffer = buffer.slice(result.bytesConsumed);
+        continue;
+      }
+
       const response = executeCommand(command, args);
 
-      const rawBuffer = buffer.slice(0, result.bytesConsumed)
-      if(response.isWrite) {
+      if (isReplica && response.isWrite) {
+        socket.write(
+          encodeRESP({
+            type: "error",
+            value: "READONLY You can't write against a read only replica.",
+          }),
+        );
+
+        buffer = buffer.slice(result.bytesConsumed);
+        continue;
+      }
+      const rawBuffer = buffer.slice(0, result.bytesConsumed);
+      if (response.isWrite) {
         appendToAOF(rawBuffer);
+        for (const replica of replicaSocket) {
+          replica.write(rawBuffer);
+        }
       }
       console.log("Execution result:", response);
       socket.write(encodeRESP(response.response));
@@ -73,6 +130,6 @@ setInterval(() => {
   }
 }, 1000);
 
-server.listen(6379, () => {
+server.listen(port, () => {
   console.log("Server is listening on port 6379");
 });
