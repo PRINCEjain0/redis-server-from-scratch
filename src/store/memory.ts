@@ -380,3 +380,18 @@ export function expireKey(key: string, ttlSeconds: number): number {
   return 1;
 }
 
+export function setBoolean(key: string, value: boolean): void {
+  setKey(key, value ? "1" : "0");
+}
+
+export function getBoolean(key: string): boolean | null {
+  const value = getKey(key);
+  if (value === null) return null;
+
+  if (value !== "0" && value !== "1") {
+    throw new Error("WRONGTYPE Operation against a key holding non-boolean value");
+  }
+
+  return value === "1";
+}
+

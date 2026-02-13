@@ -17,7 +17,9 @@ import {
   hset,
   hget,
   hgetall,
-  expireKey
+  expireKey,
+  setBoolean,
+  getBoolean,
 } from "../store/memory";
 
 import { encodeCommand } from "../resp/encoder";
@@ -369,7 +371,11 @@ export function executeCommand(
     }
 
     case "EXPIRE": {
-      if (args.length !== 2) return {response: { type: "error", value: "ERR wrong number of arguments" }, isWrite: false  };
+      if (args.length !== 2)
+        return {
+          response: { type: "error", value: "ERR wrong number of arguments" },
+          isWrite: false,
+        };
 
       const [key, secondsStr] = args;
       const seconds = parseInt(secondsStr, 10);
@@ -520,6 +526,65 @@ export function executeCommand(
         response: getAllKeys(),
         isWrite: false,
       };
+    }
+
+    case "BSET": {
+      if (args.length !== 2) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'bset' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      const [key, boolStr] = args;
+
+      if (boolStr !== "true" && boolStr !== "false") {
+        return {
+          response: {
+            type: "error",
+            value: "ERR boolean must be true or false",
+          },
+          isWrite: false,
+        };
+      }
+
+      setBoolean(key, boolStr === "true");
+
+      return {
+        response: { type: "status", value: "OK" },
+        isWrite: true,
+        aofBuffer: [rawBuffer],
+      };
+    }
+
+    case "BGET": {
+      if (args.length !== 1) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'bget' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      try {
+        const value = getBoolean(args[0]);
+        if (value === null) return { response: null, isWrite: false };
+
+        return {
+          response: { type: "bulk", value: value ? "true" : "false" },
+          isWrite: false,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
     }
 
     case "INFO":
