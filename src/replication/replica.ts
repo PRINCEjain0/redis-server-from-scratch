@@ -10,6 +10,7 @@ export function connectToMaster(masterHost: string, masterPort: number) {
   const filePath = path.join(process.cwd(), "appendonly.aof");
 
   let replicaOffset = 0;
+  let buffer = Buffer.alloc(0);
 
   if (fs.existsSync(filePath)) {
     const stats = fs.statSync(filePath);
@@ -22,8 +23,6 @@ export function connectToMaster(masterHost: string, masterPort: number) {
     const msg = `*2\r\n$7\r\nREPLICA\r\n$${replicaOffset.toString().length}\r\n${replicaOffset}\r\n`;
     socket.write(msg);
   });
-
-  let buffer = Buffer.alloc(0);
 
   socket.on("data", (chunk: Buffer) => {
     buffer = Buffer.concat([buffer, chunk]);

@@ -6,6 +6,8 @@ import { executeCommand } from "../command/execute";
 let stream: fs.WriteStream | null = null;
 let fd: number | null = null;
 let lastFsync = Date.now();
+let isReplaying = false;
+
 
 export function initAOF() {
   const filePath = path.join(process.cwd(), "appendonly.aof");
@@ -16,7 +18,6 @@ export function initAOF() {
   });
 }
 
-let isReplaying = false;
 
 export function appendToAOF(buffer: Buffer) {
   if (!stream || fd === null) return;

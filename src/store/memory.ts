@@ -21,6 +21,7 @@ function isExpired(entry: StoredValue) {
   return entry.expiresAt !== null && Date.now() > entry.expiresAt;
 }
 
+
 export function setKey(key: string, value: string, ttlSeconds?: number) {
   const expiresAt =
     ttlSeconds !== undefined ? Date.now() + ttlSeconds * 1000 : null;
@@ -189,6 +190,12 @@ export function llen(key: string): number {
   const entry = store.get(key);
   if (!entry) return 0;
 
+  if (isExpired(entry)) {
+    store.delete(key);
+    expiryKeys.delete(key);
+    return 0;
+  }
+
   if (entry.data.type !== "list") {
     throw new Error(
       "WRONGTYPE Operation against a key holding the wrong kind of value",
@@ -258,7 +265,8 @@ export function rpop(key: string, count?: number): string[] | null {
   }
 
   const popCount = count ?? 1;
-  const result = list.splice(list.length - popCount, popCount);
+  const actualCount = Math.min(popCount, list.length);
+  const result = list.splice(list.length - actualCount, actualCount);
 
   if (list.length === 0) {
     store.delete(key);
@@ -271,6 +279,12 @@ export function rpop(key: string, count?: number): string[] | null {
 export function lrange(key: string, start: number, stop: number): string[] {
   const entry = store.get(key);
   if (!entry) return [];
+
+  if (isExpired(entry)) {
+    store.delete(key);
+    expiryKeys.delete(key);
+    return [];
+  }
 
   if (entry.data.type !== "list") {
     throw new Error(
@@ -292,7 +306,6 @@ export function lrange(key: string, start: number, stop: number): string[] {
   return list.slice(start, stop + 1);
 }
 
-
 export function hset(key: string, field: string, value: string): number {
   let entry = store.get(key);
 
@@ -312,7 +325,7 @@ export function hset(key: string, field: string, value: string): number {
 
   if (entry.data.type !== "hash") {
     throw new Error(
-      "WRONGTYPE Operation against a key holding the wrong kind of value"
+      "WRONGTYPE Operation against a key holding the wrong kind of value",
     );
   }
 
@@ -322,7 +335,6 @@ export function hset(key: string, field: string, value: string): number {
 
   return isNewField ? 1 : 0;
 }
-
 
 export function hget(key: string, field: string): string | null {
   const entry = store.get(key);
@@ -336,7 +348,7 @@ export function hget(key: string, field: string): string | null {
 
   if (entry.data.type !== "hash") {
     throw new Error(
-      "WRONGTYPE Operation against a key holding the wrong kind of value"
+      "WRONGTYPE Operation against a key holding the wrong kind of value",
     );
   }
 
@@ -355,7 +367,7 @@ export function hgetall(key: string): string[] {
 
   if (entry.data.type !== "hash") {
     throw new Error(
-      "WRONGTYPE Operation against a key holding the wrong kind of value"
+      "WRONGTYPE Operation against a key holding the wrong kind of value",
     );
   }
 
@@ -379,19 +391,3 @@ export function expireKey(key: string, ttlSeconds: number): number {
 
   return 1;
 }
-
-export function setBoolean(key: string, value: boolean): void {
-  setKey(key, value ? "1" : "0");
-}
-
-export function getBoolean(key: string): boolean | null {
-  const value = getKey(key);
-  if (value === null) return null;
-
-  if (value !== "0" && value !== "1") {
-    throw new Error("WRONGTYPE Operation against a key holding non-boolean value");
-  }
-
-  return value === "1";
-}
-
