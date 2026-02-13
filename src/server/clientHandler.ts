@@ -16,46 +16,59 @@ function processClientBuffer(
   let buffer = initialBuffer;
 
   while (true) {
-    const result = decodeRESP(buffer);
-   
-    if (!result) break;
-    console.log(result);
-    const [rawCommand, ...args] = result.value;
-    const command = rawCommand.toUpperCase();
+    try {
+      const result = decodeRESP(buffer);
 
-    console.log("Parsed command:", command);
+      if (!result) break;
+      console.log(result);
 
-    if (command === "REPLICA") {
-      const replicaOffset = args[0] ? parseInt(args[0], 10) : 0;
-      registerReplica(socket, replicaOffset);
+      const [rawCommand, ...args] = result.value;
+      const command = rawCommand.toUpperCase();
+
+      console.log("Parsed command:", command);
+
+      if (command === "REPLICA") {
+        const replicaOffset = args[0] ? parseInt(args[0], 10) : 0;
+        registerReplica(socket, replicaOffset);
+
+        buffer = buffer.slice(result.bytesConsumed);
+        continue;
+      }
+
+      const rawBuffer = buffer.slice(0, result.bytesConsumed);
+      const response = executeCommand(command, args, rawBuffer);
+
+      if (isReplica && response.aofBuffer) {
+        socket.write(
+          encodeRESP({
+            type: "error",
+            value: "READONLY You can't write against a read only replica.",
+          }),
+        );
+
+        buffer = buffer.slice(result.bytesConsumed);
+        continue;
+      }
+
+      if (response.aofBuffer) {
+        replicateAndPersistBuffers(response.aofBuffer);
+      }
+
+      console.log("Execution result:", response);
+      socket.write(encodeRESP(response.response));
 
       buffer = buffer.slice(result.bytesConsumed);
-      continue;
+    } catch (err: any) {
+      console.error("Error while processing client buffer:", err);
+      
+        socket.write(
+          encodeRESP({
+            type: "error",
+            value: err.message,
+          }),
+        );
+      break;
     }
-
-    const rawBuffer = buffer.slice(0, result.bytesConsumed);
-    const response = executeCommand(command, args, rawBuffer);
-
-    if (isReplica && response.aofBuffer) {
-      socket.write(
-        encodeRESP({
-          type: "error",
-          value: "READONLY You can't write against a read only replica.",
-        }),
-      );
-
-      buffer = buffer.slice(result.bytesConsumed);
-      continue;
-    }
-
-    if (response.aofBuffer) {
-      replicateAndPersistBuffers(response.aofBuffer);
-    }
-
-    console.log("Execution result:", response);
-    socket.write(encodeRESP(response.response));
-
-    buffer = buffer.slice(result.bytesConsumed);
   }
 
   return buffer;
