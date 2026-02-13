@@ -1,13 +1,18 @@
-# Redis From Scratch (TypeScript)
 
-Minimal Redis-like server built with:
+# Redis Server from scratch in TypeScript
 
-- Raw TCP sockets
-- Custom RESP protocol
-- In-memory datastore (strings, lists, hashes)
-- Append-Only File (AOF) persistence
-- Master-Replica replication
-- TTL and background expiration
+A Redis-compatible in-memory data store built using raw TCP sockets and a custom RESP implementation.
+
+This project implements:
+
+- TCP networking layer
+- RESP protocol parser and encoder
+- In-memory storage engine
+- Append Only File persistence
+- Master replica replication
+- Offset-based partial synchronization
+- Active and passive key expiration
+- Multiple data structures
 
 ---
 
@@ -17,27 +22,57 @@ Minimal Redis-like server built with:
 
 ---
 
-## Data Model
+# Networking
+
+- TCP server using Node `net`
+- Per-socket buffering
+- Safe handling of partial packets
+- Supports pipelined commands
+- Replica connections handled as special clients
+
+---
+
+# RESP Support
+
+Implemented types:
+
+- Simple String
+- Bulk String
+- Integer
+- Array
+- Null
+
+---
+
+# Data Model
 
 ```ts
-type RedisValue =
-  | { type: "string"; value: string }
-  | { type: "list"; value: string[] }
-  | { type: "hash"; value: Map<string, string> };
+type redisValue =
+  | {
+      type: "string";
+      value: string;
+    }
+  | {
+      type: "list";
+      value: string[];
+    }
+  | { type: "hash"; 
+      value: Map<string, string> 
+    };
 
-type StoredValue = {
-  data: RedisValue;
+interface StoredValue {
+  data: redisValue;
   expiresAt: number | null;
-};
+}
 ```
 
 ---
 
-## Supported Commands
+# Supported Commands
 
-**Strings / Keys**
+## Strings
 
-```text
+```
 SET key value
 SET key value EX seconds
 GET key
@@ -46,89 +81,120 @@ EXISTS key
 TTL key
 EXPIRE key seconds
 PEXPIREAT key timestamp
-DBSIZE
 KEYS *
+DBSIZE
 ```
 
-**Lists**
+## Lists
 
-```text
+```
 LPUSH key value [value ...]
 RPUSH key value [value ...]
 LPOP key [count]
-RPOP key [count]
+RPOP Key [count]
 LLEN key
-LRANGE key start stop
 ```
 
-**Hashes**
+## Hashes
 
-```text
+```
 HSET key field value
 HGET key field
 HGETALL key
 ```
 
-**Meta**
+---
 
-```text
-PING
-INFO
-COMMAND
+# Expiration Model
+
+Two-layer expiration strategy:
+
+Passive expiration  
+Key checked on access and removed if expired  
+
+Active expiration  
+Background sampling loop cleans expired keys  
+
+TTL persistence stored using:
+
+```
+SET key value
+PEXPIREAT key absoluteTimestamp
 ```
 
----
-
-## Expiration
-
-- Per-key `expiresAt` timestamp
-- **Passive:** checked on access
-- **Active:** sampled cleanup loop
-- TTL persisted via `PEXPIREAT` in AOF
+Absolute timestamps ensure correct expiration after restart.
 
 ---
 
-## Persistence
+# Persistence
 
-- File: `appendonly.aof`
-- On write: append RESP command
-- On restart: replay AOF → rebuild memory
+Append Only File located at:
 
----
-
-## Replication
-
-```mermaid
-sequenceDiagram
-  participant Replica
-  participant Master
-  participant Repl as replication/master.ts
-
-  Replica->>Master: REPLICA <offset>
-  alt backlog covers offset
-    Repl-->>Replica: backlog data
-  else
-    Repl-->>Replica: full AOF (full resync)
-  end
-  Repl-->>Replica: live write stream
+```
+appendonly.aof
 ```
 
-- Master tracks `masterOffset` and backlog window
-- Replica uses local AOF size as offset
+Restart sequence:
+
+- Load AOF
+- Replay commands sequentially
+- Restore in-memory state
+- Resume accepting connections
 
 ---
 
-## Running
+# Replication
+
+Supports master replica topology with:
+
+- Offset tracking
+- Replication backlog window
+- Partial resynchronization
+- Full resync fallback
+
+
+Master tracks total written bytes.  
+Replica sends last known offset on reconnect.  
+Missing data is streamed from backlog.
+
+---
+
+# Running
+
+## Install
 
 ```bash
 npm install
+```
 
-# master
+## Start Master
+
+```bash
 npx ts-node src/server.ts --port 6379
+```
 
-# replica (optional)
+## Start Replica
+
+```bash
 npx ts-node src/server.ts --port 6380 --replica 127.0.0.1 6379
+```
 
-# client
+## Connect
+
+```bash
 redis-cli -p 6379
 ```
+
+---
+
+# Failure Handling
+
+- Replica disconnect does not affect master
+- Replica reconnect triggers partial resync
+- Crash recovery handled via AOF replay
+- Expired keys cleaned automatically
+
+---
+
+
+Built from first principles using TCP and low-level system primitives.
