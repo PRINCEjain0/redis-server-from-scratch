@@ -1,4 +1,6 @@
 import { Socket } from "net";
+import * as fs from "fs";
+import * as path from "path";
 import { appendToAOF } from "../persistence/aof";
 
 interface ReplicaClient {
@@ -14,15 +16,47 @@ interface BacklogEntry {
 
 const MAX_BACKLOG_BYTES = 1024 * 1024;
 
+const AOF_PATH = path.join(process.cwd(), "appendonly.aof");
+
 let masterOffset = 0;
 let replicaClients: ReplicaClient[] = [];
 let replicationBacklog: BacklogEntry[] = [];
 
+
+if (fs.existsSync(AOF_PATH)) {
+  const stats = fs.statSync(AOF_PATH);
+  masterOffset = stats.size;
+}
+
+function sendFullResync(socket: Socket): number {
+  const filePath = path.join(process.cwd(), "appendonly.aof");
+
+  if (!fs.existsSync(filePath)) {
+    return 0;
+  }
+
+  const data = fs.readFileSync(filePath);
+  socket.write(data);
+  return data.length;
+}
+
 export function registerReplica(socket: Socket, replicaOffset: number) {
+  const canIncremental =
+    replicationBacklog.length > 0 &&
+    replicaOffset >= replicationBacklog[0].start &&
+    replicaOffset <= masterOffset;
+
+  const initialOffset = canIncremental ? replicaOffset : sendFullResync(socket);
+
   replicaClients.push({
     socket,
-    offset: replicaOffset,
+    offset: initialOffset,
   });
+
+  if (!canIncremental) {
+    
+    return;
+  }
 
   const replica = replicaClients[replicaClients.length - 1];
 

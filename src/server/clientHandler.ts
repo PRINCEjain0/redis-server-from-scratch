@@ -17,9 +17,9 @@ function processClientBuffer(
 
   while (true) {
     const result = decodeRESP(buffer);
-    console.log(result);
+   
     if (!result) break;
-
+    console.log(result);
     const [rawCommand, ...args] = result.value;
     const command = rawCommand.toUpperCase();
 
