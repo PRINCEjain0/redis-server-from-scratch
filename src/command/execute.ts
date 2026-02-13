@@ -14,6 +14,10 @@ import {
   lpop,
   rpop,
   lrange,
+  hset,
+  hget,
+  hgetall,
+  expireKey
 } from "../store/memory";
 
 import { encodeCommand } from "../resp/encoder";
@@ -22,7 +26,7 @@ export interface ExecutionResult {
   response: any;
   isWrite: boolean;
   aofBuffer?: Buffer[];
-};
+}
 
 export function executeCommand(
   command: string,
@@ -266,7 +270,7 @@ export function executeCommand(
       }
     }
 
-     case "RPOP": {
+    case "RPOP": {
       if (args.length < 1 || args.length > 2) {
         return {
           response: { type: "error", value: "ERR wrong number of arguments" },
@@ -296,7 +300,7 @@ export function executeCommand(
         }
 
         return {
-          response:  result ,
+          response: result,
           isWrite: true,
           aofBuffer: [rawBuffer],
         };
@@ -362,6 +366,119 @@ export function executeCommand(
         aofBuffer: [rawBuffer],
         isWrite: true,
       };
+    }
+
+    case "EXPIRE": {
+      if (args.length !== 2) return {response: { type: "error", value: "ERR wrong number of arguments" }, isWrite: false  };
+
+      const [key, secondsStr] = args;
+      const seconds = parseInt(secondsStr, 10);
+
+      const result = expireKey(key, seconds);
+
+      if (result === 1) {
+        const expiresAt = Date.now() + seconds * 1000;
+
+        const aofBuffers = [
+          encodeCommand(["PEXPIREAT", key, expiresAt.toString()]),
+        ];
+
+        return {
+          response: { type: "integer", value: 1 },
+          isWrite: true,
+          aofBuffer: aofBuffers,
+        };
+      }
+
+      return {
+        response: { type: "integer", value: 0 },
+        isWrite: false,
+      };
+    }
+
+    case "HSET": {
+      if (args.length !== 3) {
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'hset' command",
+          },
+          isWrite: false,
+        };
+      }
+
+      const [key, field, value] = args;
+
+      try {
+        const result = hset(key, field, value);
+
+        return {
+          response: { type: "integer", value: result },
+          isWrite: true,
+          aofBuffer: [rawBuffer],
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
+    }
+
+    case "HGET": {
+      if (args.length !== 2)
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'hget' command",
+          },
+          isWrite: false,
+        };
+
+      const [key, field] = args;
+
+      try {
+        const value = hget(key, field);
+
+        if (value === null) return { response: null, isWrite: false };
+
+        return {
+          response: { type: "bulk", value },
+          isWrite: false,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
+    }
+
+    case "HGETALL": {
+      if (args.length !== 1)
+        return {
+          response: {
+            type: "error",
+            value: "ERR wrong number of arguments for 'hgetall' command",
+          },
+          isWrite: false,
+        };
+
+      const [key] = args;
+
+      try {
+        const values = hgetall(key);
+
+        return {
+          response: values,
+          isWrite: false,
+        };
+      } catch (err: any) {
+        return {
+          response: { type: "error", value: err.message },
+          isWrite: false,
+        };
+      }
     }
 
     case "DBSIZE":
