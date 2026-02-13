@@ -16,20 +16,23 @@ interface BacklogEntry {
 
 const MAX_BACKLOG_BYTES = 1024 * 1024;
 
-const AOF_PATH = path.join(process.cwd(), "appendonly.aof");
-
+let masterPort = 6379;
 let masterOffset = 0;
 let replicaClients: ReplicaClient[] = [];
 let replicationBacklog: BacklogEntry[] = [];
 
+export function initMasterReplication(port: number) {
+  masterPort = port;
+  const aofPath = path.join(process.cwd(), `appendonly-${port}.aof`);
 
-if (fs.existsSync(AOF_PATH)) {
-  const stats = fs.statSync(AOF_PATH);
-  masterOffset = stats.size;
+  if (fs.existsSync(aofPath)) {
+    const stats = fs.statSync(aofPath);
+    masterOffset = stats.size;
+  }
 }
 
 function sendFullResync(socket: Socket): number {
-  const filePath = path.join(process.cwd(), "appendonly.aof");
+  const filePath = path.join(process.cwd(), `appendonly-${masterPort}.aof`);
 
   if (!fs.existsSync(filePath)) {
     return 0;

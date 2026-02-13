@@ -6,8 +6,8 @@ import { decodeRESP } from "../resp/decoder";
 import { executeCommand } from "../command/execute";
 import { appendToAOF } from "../persistence/aof";
 
-export function connectToMaster(masterHost: string, masterPort: number) {
-  const filePath = path.join(process.cwd(), "appendonly.aof");
+export function connectToMaster(masterHost: string, masterPort: number, replicaPort: number) {
+  const filePath = path.join(process.cwd(), `appendonly-${replicaPort}.aof`);
 
   let replicaOffset = 0;
   let buffer = Buffer.alloc(0);

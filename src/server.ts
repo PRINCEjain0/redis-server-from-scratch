@@ -5,15 +5,20 @@ import { connectToMaster } from "./replication/replica";
 import { parseArgs } from "./server/config";
 import { handleClientConnection } from "./server/clientHandler";
 import { startExpiryCleaner } from "./server/expiry";
+import { initMasterReplication } from "./replication/master";
 
 function bootstrap() {
   const { port, isReplica, masterHost, masterPort } = parseArgs(process.argv);
 
-  loadAOF();
-  initAOF();
+  loadAOF(port);
+  initAOF(port);
+
+  if (!isReplica) {
+    initMasterReplication(port);
+  }
 
   if (isReplica && masterHost && masterPort) {
-    connectToMaster(masterHost, masterPort);
+    connectToMaster(masterHost, masterPort, port);
   }
 
   const server = net.createServer((socket: Socket) =>

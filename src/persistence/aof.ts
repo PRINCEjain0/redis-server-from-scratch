@@ -7,17 +7,20 @@ let stream: fs.WriteStream | null = null;
 let fd: number | null = null;
 let lastFsync = Date.now();
 let isReplaying = false;
+let aofPath: string = "";
 
+function getAOFPath(port: number): string {
+  return path.join(process.cwd(), `appendonly-${port}.aof`);
+}
 
-export function initAOF() {
-  const filePath = path.join(process.cwd(), "appendonly.aof");
+export function initAOF(port: number) {
+  aofPath = getAOFPath(port);
 
-  fd = fs.openSync(filePath, "a");
-  stream = fs.createWriteStream(filePath, {
+  fd = fs.openSync(aofPath, "a");
+  stream = fs.createWriteStream(aofPath, {
     flags: "a",
   });
 }
-
 
 export function appendToAOF(buffer: Buffer) {
   if (!stream || fd === null) return;
@@ -32,11 +35,11 @@ export function appendToAOF(buffer: Buffer) {
   }
 }
 
-export function loadAOF() {
-  const filePath = path.join(process.cwd(), "appendonly.aof");
-  if (!fs.existsSync(filePath)) return;
+export function loadAOF(port: number) {
+  aofPath = getAOFPath(port);
+  if (!fs.existsSync(aofPath)) return;
 
-  const data = fs.readFileSync(filePath);
+  const data = fs.readFileSync(aofPath);
 
   isReplaying = true;
 
@@ -55,4 +58,8 @@ export function loadAOF() {
   }
 
   isReplaying = false;
+}
+
+export function getAOFFilePath(): string {
+  return aofPath;
 }
