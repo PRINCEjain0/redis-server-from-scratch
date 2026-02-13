@@ -1,4 +1,3 @@
-import { Socket } from "net";
 
 export interface ServerConfig {
   port: number;

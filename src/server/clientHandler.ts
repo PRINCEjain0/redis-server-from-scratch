@@ -10,9 +10,9 @@ import {
 
 function processClientBuffer(
   socket: Socket,
-  initialBuffer: Buffer,
+  initialBuffer: any,
   isReplica: boolean,
-): Buffer {
+) {
   let buffer = initialBuffer;
 
   while (true) {

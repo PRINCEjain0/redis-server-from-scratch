@@ -203,16 +203,10 @@ const handleLpop: CommandHandler = (args, rawBuffer) => {
       return { response: null, isWrite: false };
     }
 
-    if (!count) {
-      return {
-        response: { type: "bulk", value: result[0] },
-        isWrite: true,
-        aofBuffer: [rawBuffer],
-      };
-    }
-
     return {
-      response: result,
+      response: !count
+        ? { type: "bulk", value: result[0] }
+        : result.map((v) => ({ type: "bulk", value: v })),
       isWrite: true,
       aofBuffer: [rawBuffer],
     };
@@ -236,16 +230,10 @@ const handleRpop: CommandHandler = (args, rawBuffer) => {
       return { response: null, isWrite: false };
     }
 
-    if (!count) {
-      return {
-        response: { type: "bulk", value: result[0] },
-        isWrite: true,
-        aofBuffer: [rawBuffer],
-      };
-    }
-
     return {
-      response: result,
+      response: !count
+        ? { type: "bulk", value: result[0] }
+        : result.map((v) => ({ type: "bulk", value: v })),
       isWrite: true,
       aofBuffer: [rawBuffer],
     };
@@ -264,7 +252,7 @@ const handleLrange: CommandHandler = (args) => {
     const result = lrange(key, parseInt(startStr), parseInt(stopStr));
 
     return {
-      response: result,
+      response: result.map((v) => ({ type: "bulk", value: v })),
       isWrite: false,
     };
   } catch (err: any) {
@@ -372,7 +360,7 @@ const handleHgetAll: CommandHandler = (args) => {
     const values = hgetall(key);
 
     return {
-      response: values,
+      response: values.map((v: string) => ({ type: "bulk", value: v })),
       isWrite: false,
     };
   } catch (err: any) {
@@ -402,8 +390,10 @@ const handleKeys: CommandHandler = (args) => {
     return errorResult("ERR only KEYS * supported", false);
   }
 
+  const keys = getAllKeys();
+
   return {
-    response: getAllKeys(),
+    response: keys.map((k) => ({ type: "bulk", value: k })),
     isWrite: false,
   };
 };

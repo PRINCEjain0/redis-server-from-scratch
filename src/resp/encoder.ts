@@ -4,7 +4,7 @@ export type RESPValue =
   | { type: "integer"; value: number }
   | { type: "bulk"; value: string }
   | null
-
+  
 export function encodeRESP(value: RESPValue): Buffer {
   if (value === null) {
     return Buffer.from("$-1\r\n");
