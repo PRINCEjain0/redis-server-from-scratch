@@ -18,7 +18,7 @@ import {
 
 import { encodeCommand } from "../resp/encoder";
 
-export type ExecutionResult = {
+export interface ExecutionResult {
   response: any;
   isWrite: boolean;
   aofBuffer?: Buffer[];

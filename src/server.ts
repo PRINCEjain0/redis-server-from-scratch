@@ -8,6 +8,7 @@ import { initAOF, appendToAOF, loadAOF } from "./persistence/aof";
 import { connectToMaster } from "./replication/replica";
 
 let port: number = 6379;
+let masterOffset: number = 0;
 
 const args = process.argv;
 
@@ -35,7 +36,22 @@ if (portIndex !== -1 && portIndex + 1 < args.length) {
   port = parseInt(args[portIndex + 1], 10);
 }
 
-let replicaSocket: Socket[] = [];
+interface ReplicaClient {
+  socket: Socket;
+  offset: number;
+}
+
+let replicaClients: ReplicaClient[] = [];
+
+interface BacklogEntry {
+  start: number;
+  end: number;
+  data: Buffer;
+}
+
+let replicationBacklog: BacklogEntry[] = [];
+
+const MAX_BACKLOG_BYTES = 1024 * 1024;
 
 loadAOF();
 initAOF();
@@ -62,9 +78,20 @@ const server = net.createServer((socket: Socket) => {
       console.log("Parsed command:", command);
 
       if (command === "REPLICA") {
-        replicaSocket.push(socket);
+        const replicaOffset = args[0] ? parseInt(args[0], 10) : 0;
 
-        socket.write(encodeRESP({ type: "status", value: "OK" }));
+        replicaClients.push({
+          socket,
+          offset: replicaOffset,
+        });
+
+        for (const entry of replicationBacklog) {
+          if (entry.end > replicaOffset) {
+            socket.write(entry.data);
+            replicaClients[replicaClients.length - 1].offset +=
+              entry.data.length;
+          }
+        }
 
         buffer = buffer.slice(result.bytesConsumed);
         continue;
@@ -87,8 +114,28 @@ const server = net.createServer((socket: Socket) => {
       if (response.aofBuffer) {
         for (const buf of response.aofBuffer) {
           appendToAOF(buf);
-          for (const replica of replicaSocket) {
-            replica.write(buf);
+
+          const start = masterOffset;
+          const end = masterOffset + buf.length;
+
+          replicationBacklog.push({
+            start,
+            end,
+            data: buf,
+          });
+
+          masterOffset = end;
+
+          while (
+            replicationBacklog.length > 0 &&
+            masterOffset - replicationBacklog[0].start > MAX_BACKLOG_BYTES
+          ) {
+            replicationBacklog.shift();
+          }
+
+          for (const replica of replicaClients) {
+            replica.socket.write(buf);
+            replica.offset += buf.length;
           }
         }
       }

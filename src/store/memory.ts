@@ -6,7 +6,7 @@ type redisValue = {
   value : string[],
 }
 
-type StoredValue = {
+interface StoredValue {
   data: redisValue;
   expiresAt: number | null;
 };
