@@ -307,6 +307,14 @@ export function lrange(key: string, start: number, stop: number): string[] {
 }
 
 export function hset(key: string, field: string, value: string): number {
+  return hsetMultiple(key, [[field, value]]);
+}
+
+/** HSET key field value [field value ...]. Returns number of fields that were added (new). */
+export function hsetMultiple(
+  key: string,
+  fieldValuePairs: [string, string][],
+): number {
   let entry = store.get(key);
 
   if (entry && isExpired(entry)) {
@@ -329,11 +337,13 @@ export function hset(key: string, field: string, value: string): number {
     );
   }
 
-  const isNewField = !entry.data.value.has(field);
+  let added = 0;
+  for (const [field, value] of fieldValuePairs) {
+    if (!entry.data.value.has(field)) added++;
+    entry.data.value.set(field, value);
+  }
 
-  entry.data.value.set(field, value);
-
-  return isNewField ? 1 : 0;
+  return added;
 }
 
 export function hget(key: string, field: string): string | null {

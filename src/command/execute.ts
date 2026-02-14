@@ -14,7 +14,7 @@ import {
   lpop,
   rpop,
   lrange,
-  hset,
+  hsetMultiple,
   hget,
   hgetall,
   expireKey,
@@ -304,18 +304,22 @@ const handleExpire: CommandHandler = (args) => {
 };
 
 const handleHset: CommandHandler = (args, rawBuffer) => {
-  if (args.length !== 3) {
+  // HSET key field value [field value ...] — need at least 3 args and odd total (key + pairs)
+  if (args.length < 3 || (args.length - 1) % 2 !== 0) {
     return errorResult(
       "ERR wrong number of arguments for 'hset' command",
       false,
     );
   }
 
-  const [key, field, value] = args;
+  const key = args[0];
+  const pairs: [string, string][] = [];
+  for (let i = 1; i < args.length; i += 2) {
+    pairs.push([args[i], args[i + 1]]);
+  }
 
   try {
-    const result = hset(key, field, value);
-
+    const result = hsetMultiple(key, pairs);
     return integerResult(result, true, [rawBuffer]);
   } catch (err: any) {
     return errorResult(err.message, false);
