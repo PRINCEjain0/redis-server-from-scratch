@@ -170,6 +170,12 @@ npm install
 ## Start Master
 
 ```bash
+npm run start
+```
+
+Or with a custom port:
+
+```bash
 npx ts-node src/server.ts --port 6379
 ```
 
@@ -184,6 +190,28 @@ npx ts-node src/server.ts --port 6380 --replica 127.0.0.1 6379
 ```bash
 redis-cli -p 6379
 ```
+
+## Testing
+
+1. Start the server (in one terminal):
+
+   ```bash
+   npm run start
+   ```
+
+   Or with a custom port:
+
+   ```bash
+   npx ts-node src/server.ts --port 6379
+   ```
+
+2. Run the test suite (in another terminal):
+
+   ```bash
+   npm test
+   ```
+
+   This runs `scripts/test-commands.ts`, which connects to `127.0.0.1:6379`, sends a set of commands (PING, SET/GET, TTL, DEL, LPUSH/LRANGE, HSET/HGETALL, etc.), and checks responses. Exit code 0 means all tests passed.
 
 ---
 
