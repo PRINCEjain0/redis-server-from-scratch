@@ -145,17 +145,17 @@ Restart sequence:
 
 # Replication
 
-Supports master replica topology with:
+![Replication Flow](./assets/replication-flow.png)
 
-- Offset tracking
-- Replication backlog window
-- Partial resynchronization
-- Full resync fallback
+**1. Normal writes**
 
+- Client writes go to Master → Master appends to its AOF and Backlog → Master streams the same data to Replica → Replica applies to Replica Store and Replica AOF.
 
-Master tracks total written bytes.  
-Replica sends last known offset on reconnect.  
-Missing data is streamed from backlog.
+**2. When replica (re)connects**
+
+- Replica sends its last offset to Master.
+- **If backlog has that range:** Master sends only the missing backlog data (partial sync).
+- **If backlog does not have it (e.g. connection was down too long):** Master sends the full AOF (full resync), then normal writes continue as above.
 
 ---
 
