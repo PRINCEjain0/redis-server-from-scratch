@@ -23,6 +23,14 @@ function processClientBuffer(
       console.log(result);
 
       const [rawCommand, ...args] = result.value;
+      if (rawCommand == null || typeof rawCommand !== "string") {
+        try {
+          socket.write(
+            encodeRESP({ type: "error", value: "ERR invalid command format" }),
+          );
+        } catch {}
+        break;
+      }
       const command = rawCommand.toUpperCase();
 
       console.log("Parsed command:", command);
@@ -60,13 +68,16 @@ function processClientBuffer(
       buffer = buffer.slice(result.bytesConsumed);
     } catch (err: any) {
       console.error("Error while processing client buffer:", err);
-      
+      try {
         socket.write(
           encodeRESP({
             type: "error",
-            value: err.message,
+            value: err?.message ?? "ERR internal error",
           }),
         );
+      } catch {
+        // client may be gone
+      }
       break;
     }
   }

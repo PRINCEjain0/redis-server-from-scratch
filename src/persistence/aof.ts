@@ -45,16 +45,21 @@ export function loadAOF(port: number) {
 
   let buffer = data;
   while (true) {
-    const result = decodeRESP(buffer);
+    try {
+      const result = decodeRESP(buffer);
+      if (!result) break;
 
-    if (!result) break;
+      const [rawCommand, ...args] = result.value;
+      if (rawCommand == null || typeof rawCommand !== "string") break;
+      const command = rawCommand.toUpperCase();
+      const rawBuffer = buffer.slice(0, result.bytesConsumed);
+      executeCommand(command, args, rawBuffer);
 
-    const [rawCommand, ...args] = result.value;
-    const command = rawCommand.toUpperCase();
-    const  rawBuffer = buffer.slice(0, result.bytesConsumed);
-    executeCommand(command, args, rawBuffer);
-
-    buffer = buffer.slice(result.bytesConsumed);
+      buffer = buffer.slice(result.bytesConsumed);
+    } catch (err) {
+      console.error("AOF replay error:", err);
+      break;
+    }
   }
 
   isReplaying = false;

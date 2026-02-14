@@ -27,21 +27,30 @@ export function connectToMaster(masterHost: string, masterPort: number, replicaP
   socket.on("data", (chunk: Buffer) => {
     buffer = Buffer.concat([buffer, chunk]);
 
-    while (true) {
-      const result = decodeRESP(buffer);
-      if (!result) break;
+    try {
+      while (true) {
+        const result = decodeRESP(buffer);
+        if (!result) break;
 
-      const [rawCommand, ...args] = result.value;
-      const command = rawCommand.toUpperCase();
-      const rawBuffer = buffer.slice(0, result.bytesConsumed);
-      const response = executeCommand(command, args, rawBuffer);
-      replicaOffset += result.bytesConsumed;
+        const [rawCommand, ...args] = result.value;
+        if (rawCommand == null || typeof rawCommand !== "string") break;
+        const command = rawCommand.toUpperCase();
+        const rawBuffer = buffer.slice(0, result.bytesConsumed);
+        const response = executeCommand(command, args, rawBuffer);
+        replicaOffset += result.bytesConsumed;
 
-      if (response.isWrite) {
-        appendToAOF(rawBuffer);
+        if (response.isWrite) {
+          appendToAOF(rawBuffer);
+        }
+
+        buffer = buffer.slice(result.bytesConsumed);
       }
-
-      buffer = buffer.slice(result.bytesConsumed);
+    } catch (err) {
+      console.error("Replica apply error:", err);
     }
+  });
+
+  socket.on("error", (err: Error) => {
+    console.error("Replica socket error:", err);
   });
 }

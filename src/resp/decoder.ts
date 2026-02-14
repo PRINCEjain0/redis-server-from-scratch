@@ -23,8 +23,9 @@ function parseArray(buffer: Buffer): RESPParseResult {
     buffer.slice(1, lineEnd).toString(),
     10
   );
+  if (Number.isNaN(count) || count < 0) return null;
 
-  let offset = lineEnd + 2; 
+  let offset = lineEnd + 2;
   const items: any[] = [];
 
   for (let i = 0; i < count; i++) {
@@ -53,6 +54,7 @@ function parseBulkString(buffer: Buffer): RESPParseResult {
     buffer.slice(1, lineEnd).toString(),
     10
   );
+  if (Number.isNaN(length) || length < 0) return null;
 
   const start = lineEnd + 2;
   const end = start + length;
