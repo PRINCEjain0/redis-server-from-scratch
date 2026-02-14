@@ -66,26 +66,34 @@ const handlePing: CommandHandler = () => ({
 });
 
 const handleSet: CommandHandler = (args) => {
-  if (args.length < 2 || args.length > 4) {
+  if (args.length < 2) {
     return errorResult("ERR wrong number of arguments for 'set' command", true);
   }
 
   const [key, value, option, ttl] = args;
   let expiresAt: number | null = null;
 
-  if (option === "EX" && ttl !== undefined) {
+  if (args.length === 2) {
+    setKey(key, value);
+    const aofBuffer: Buffer[] = [encodeCommand(["SET", key, value])];
+    return { response: { type: "status", value: "OK" }, isWrite: true, aofBuffer };
+  }
+
+  if (args.length === 4 && option === "EX" && ttl !== undefined) {
     const ttlSeconds = parseInt(ttl, 10);
-    if(isNaN(ttlSeconds)){
-      return errorResult("ERR ttl value is not an integer or out of range", false);
+    if (Number.isNaN(ttlSeconds)) {
+      return errorResult("ERR value is not an integer or out of range", false);
     }
     expiresAt = Date.now() + ttlSeconds * 1000;
     setKey(key, value, ttlSeconds);
-  } else if((option ===  "EX" && ttl === undefined) || (option !== "EX")){
-    return errorResult("ERR syntax error", false);
-  } else{
-    setKey(key, value);
+    const aofBuffer: Buffer[] = [
+      encodeCommand(["SET", key, value]),
+      encodeCommand(["PEXPIREAT", key, expiresAt.toString()]),
+    ];
+    return { response: { type: "status", value: "OK" }, isWrite: true, aofBuffer };
   }
-  return { response: { type: "status", value: "OK" }, isWrite: true };
+
+  return errorResult("ERR syntax error", false);
 };
 
 const handleGet: CommandHandler = (args) => {
