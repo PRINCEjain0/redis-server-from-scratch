@@ -3,6 +3,8 @@
 
 A Redis-compatible in-memory data store built using raw TCP sockets and a custom RESP implementation.
 
+<video src="./assets/demo.mp4" controls width="640"></video>
+
 This project implements:
 
 - TCP networking layer
